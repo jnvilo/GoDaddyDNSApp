@@ -1,0 +1,13 @@
+*.pyc
+__pycache__
+bin/
+lib/
+include/
+lib64/
+lib64
+rpmbrew_tools.egg-info/
+share/
+wingide.wpr
+wingide.wpu
+wing.wpr
+wing.wpu
