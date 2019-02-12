@@ -357,8 +357,18 @@ class MainWindow(QMainWindow):
                     client = Client(my_acct)                                 
                     
             except Exception as e:
-                #Failed to load the configs. 
-                print("Error Occured", e)
+                """
+                If there is no configuration found, then we can not have 
+                client connection to GoDaddy via the godaddyapp.client. 
+                
+                So we need to ask the client to configure.
+                """
+            
+                self.api_key_entry_window = ApiKeyEntryWindow()
+                self.api_key_entry_window.show()
+                    
+                
+                
                 client = None
                 
             self.quick_edit_window = DNSQuickEditWindow(client)
@@ -395,9 +405,9 @@ def main():
 
 if __name__ == "__main__":
     
-    import ctypes
-    myappid = 'zinnianet.dns.quickedit.1' # arbitrary string
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)    
+    #import ctypes
+    #myappid = 'zinnianet.dns.quickedit.1' # arbitrary string
+    #ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)    
     main()
 
 
