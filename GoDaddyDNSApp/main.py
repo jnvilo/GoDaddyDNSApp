@@ -46,6 +46,11 @@ from ui.apikeyentry import Ui_ApiKeyEntry
 from ui.about import Ui_AboutDialog
 from resources import get_settings_path
 
+
+#Allow CTRL-C to exit program when running from commandline
+import signal
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 class DNSRecord(object):
     
     def __init__(self, client, domain=None, host=None, data=None, 
@@ -212,6 +217,7 @@ class ApiKeyEntryWindow(QMainWindow, Ui_ApiKeyEntry):
             print("JSON Decode error")
         except Exception as e:
             print("Unhjandled exception")
+            #sys.exit()
             
     #def closeEvent(self, event):
     #    self.hide()
@@ -242,7 +248,7 @@ class ApiKeyEntryWindow(QMainWindow, Ui_ApiKeyEntry):
       
 class MainWindow(QMainWindow):
     """
-    This window is never but it does host the tray menu and is where most of the 
+    This window is never shown but it does host the tray menu and is where most of the 
     program logic is in.
     """
     
@@ -250,8 +256,8 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__(parent)
         
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
-    
+        #self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
+        self.tray_icon.setIcon(QtGui.QIcon('icon.svg'))
         '''
             Define and add steps to work with the system tray icon
             show - show window
@@ -314,9 +320,9 @@ class MainWindow(QMainWindow):
         if self.quick_edit_window is None:
             #it does not exist yet. So create it.
             self.showQuickEditWindow()
-            return
+            #return
         
-        elif activationReason == 3:
+        if activationReason == 3:
             if self.quick_edit_window.isHidden():
                 self.quick_edit_window.show()
             else:
@@ -346,16 +352,24 @@ class MainWindow(QMainWindow):
         self.showQuickEditWindow()
 
     def showQuickEditWindow(self):
+        
+        #The QuickEditWindow is not instantiated until the first time
+        #that user wants to show it. So here we create it if it does 
+        #not exist. 
         if self.quick_edit_window == None:
             settings_dir, config_pathname = self.get_config_pathname()
             try:
-                with open(config_pathname.as_posix(), "r") as f:
+                with open(config_pathname.as_posix(), "r")  as f:
                     s = f.read()
                     d = json.loads(s)            
                     my_acct = Account(api_key=d.get("PUBLIC_KEY"), 
                                       api_secret=d.get("SECRET_KEY"))
+        
+        
                     client = Client(my_acct)                                 
-                    
+                #TODO: Should also add some sanity check in here to make
+                #sure the key works. 
+        
             except Exception as e:
                 """
                 If there is no configuration found, then we can not have 
@@ -366,22 +380,41 @@ class MainWindow(QMainWindow):
             
                 self.api_key_entry_window = ApiKeyEntryWindow()
                 self.api_key_entry_window.show()
-                    
-                
                 
                 client = None
-                
+        
+        
+        
             self.quick_edit_window = DNSQuickEditWindow(client)
                 
-        #move the window to bottom right.
-        screenGeometry = QApplication.desktop().availableGeometry()
-        screenGeo = screenGeometry.bottomRight()
-    
-        self.quick_edit_window.move(screenGeo)
-        self.quick_edit_window.show()
-        msgGeo = self.quick_edit_window.frameGeometry()    
-        msgGeo.moveBottomRight(screenGeo)
-        self.quick_edit_window.move(msgGeo.topLeft())  # msgGeo.topLeft()
+        
+        """ 
+        Move the DNSQuickEditWindow to the bottom left corner of 
+        the monitor where the taskbar Icon is. This uses the screenNumber 
+        function to determine which screen the mouse is current active on. 
+        It then finds the screenGeometry of that monitor. 
+        """
+        
+        
+        
+        frameGm = self.quick_edit_window.frameGeometry()
+        screen = QApplication.desktop().screenNumber(QApplication.desktop().cursor().pos())
+        centerPoint = QApplication.desktop().availableGeometry(screen).bottomRight()
+        frameGm.moveBottomRight(centerPoint)
+        
+        monitor = QApplication.desktop().availableGeometry(screen)
+        
+        print(monitor.width(), monitor.height())
+        x1,y1,x2,y2 = frameGm.getCoords()  
+       
+        x_offset = (2/100)* monitor.width()
+        y_offset = (10/100)* monitor.height()
+        
+        print(self.quick_edit_window.width(), self.quick_edit_window.height())
+        self.quick_edit_window.move(x1-x_offset,y1-y_offset)        
+        
+        
+        
         
     def get_config_pathname(self):
         settings_dir = get_settings_path(APPNAME)
@@ -391,6 +424,14 @@ class MainWindow(QMainWindow):
     def onConfigMenuClicked(self, event):
         if self.api_key_entry_window == None:
             self.api_key_entry_window = ApiKeyEntryWindow()
+        
+        
+        frameGm = self.quick_edit_window.frameGeometry()
+        screen = QApplication.desktop().screenNumber(QApplication.desktop().cursor().pos())
+        centerPoint = QApplication.desktop().availableGeometry(screen).center()
+        frameGm.moveBottomRight(centerPoint)        
+        self.api_key_entry_window.move(frameGm.topLeft())
+        self.quick_edit_window.hide()
         self.api_key_entry_window.show()
         
     def onClose(self, event):
@@ -398,7 +439,7 @@ class MainWindow(QMainWindow):
         
 def main():
     app = QApplication(sys.argv)
-    app.setWindowIcon(QtGui.QIcon('icon.svg'))
+    app.setWindowIcon(QtGui.QIcon('./icon.svg'))
     window = MainWindow()
     window.hide()
     app.exec_()
